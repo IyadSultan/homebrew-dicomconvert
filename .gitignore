@@ -1,0 +1,13 @@
+.claude/logs.md
+
+# Images (assets/hero.png stays tracked for the README)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tif
+*.tiff
+*.webp
+*.dcm
+*.i16

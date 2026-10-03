@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Slice viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --panel: #111419;
+      --raised: #171b21;
+      --hover: #1d222a;
+      --line: #222731;
+      --line-strong: #2f3541;
+      --ink: #e7eaf0;
+      --muted: #8a93a3;
+      --dim: #5c6575;
+      --accent: #4c9dff;
+      --accent-soft: rgba(76, 157, 255, 0.14);
+      --accent-ink: #06121f;
+      --viewport: #000;
+      --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      min-height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    button, input { font: inherit; color: inherit; }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      height: 30px;
+      padding: 0 0.75rem;
+      background: var(--raised);
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 120ms, border-color 120ms, color 120ms;
+    }
+
+    button:hover { background: var(--hover); border-color: #3a4250; }
+
+    button[aria-pressed="true"] {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: rgba(76, 157, 255, 0.45);
+    }
+
+    button:focus-visible, input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    button svg { width: 16px; height: 16px; flex: none; }
+    .icon-btn { width: 30px; padding: 0; }
+
+    /* Top bar */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      height: 52px;
+      padding: 0 1rem;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding-right: 1.25rem;
+      border-right: 1px solid var(--line);
+      font-weight: 600;
+      font-size: 0.9rem;
+      white-space: nowrap;
+    }
+
+    .brand svg { width: 22px; height: 22px; color: var(--accent); }
+
+    .study { min-width: 0; flex: 1; }
+
+    h1 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #subtitle {
+      margin: 0.1rem 0 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .keys {
+      display: flex;
+      gap: 0.9rem;
+      color: var(--dim);
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    kbd {
+      display: inline-block;
+      min-width: 1.4em;
+      padding: 0.05rem 0.3rem;
+      margin-right: 0.2rem;
+      border: 1px solid var(--line-strong);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      background: var(--raised);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      text-align: center;
+    }
+
+    /* Layout */
+    main {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 248px 1fr;
+    }
+
+    aside {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.85rem 1rem 0.5rem;
+      color: var(--dim);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    #series {
+      margin: 0;
+      padding: 0 0.5rem 0.75rem;
+      list-style: none;
+      overflow: auto;
+    }
+
+    #series button {
+      width: 100%;
+      height: auto;
+      justify-content: flex-start;
+      gap: 0.7rem;
+      padding: 0.45rem;
+      margin-bottom: 2px;
+      background: transparent;
+      border: 1px solid transparent;
+      text-align: left;
+    }
+
+    #series button:hover { background: var(--hover); }
+
+    #series button[aria-pressed="true"] {
+      background: var(--accent-soft);
+      border-color: rgba(76, 157, 255, 0.35);
+      color: var(--ink);
+    }
+
+    .thumb {
+      width: 52px;
+      height: 52px;
+      flex: none;
+      border-radius: 4px;
+      background: var(--viewport);
+      border: 1px solid var(--line);
+      object-fit: contain;
+    }
+
+    #series button[aria-pressed="true"] .thumb { border-color: var(--accent); }
+
+    .series-text { min-width: 0; }
+    #series .name {
+      display: block;
+      font-size: 0.83rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #series .meta {
+      display: block;
+      margin-top: 0.2rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+    }
+
+    .stage-wrap {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      background: var(--bg);
+    }
+
+    #stage {
+      position: relative;
+      min-height: 240px;
+      background: var(--viewport);
+      overflow: hidden;
+    }
+
+    #view {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    #view:active { cursor: grabbing; }
+
+    /* Corner annotations, as on a reading workstation */
+    .ov {
+      position: absolute;
+      margin: 0;
+      color: #d5dbe5;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      line-height: 1.55;
+      text-shadow: 0 1px 2px #000, 0 0 4px #000;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 160ms;
+    }
+    .ov span { display: block; }
+    .ov .em { color: #fff; font-weight: 500; }
+    .ov.tl { top: 12px; left: 14px; }
+    .ov.tr { top: 12px; right: 62px; text-align: right; }
+    .ov.bl { bottom: 12px; left: 14px; }
+    .ov.br { bottom: 12px; right: 62px; text-align: right; }
+    #stage.loaded .ov { opacity: 1; }
+
+    #status {
+      position: absolute;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      margin: 0;
+      padding: 0.35rem 0.75rem;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      background: rgba(17, 20, 25, 0.9);
+      color: var(--muted);
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    #zoom-rail {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      bottom: 12px;
+      width: 38px;
+      z-index: 2;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: rgba(17, 20, 25, 0.82);
+      backdrop-filter: blur(6px);
+    }
+    #stage.loaded #zoom-rail { display: flex; }
+
+    #zoom-rail button {
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      background: transparent;
+      border-color: transparent;
+    }
+    #zoom-rail button:hover { background: var(--hover); }
+
+    #zoom-line {
+      flex: 1;
+      width: 24px;
+      margin: 0;
+      writing-mode: vertical-lr;
+      direction: rtl;
+      appearance: slider-vertical;
+      accent-color: var(--accent);
+    }
+
+    /* Slice scrubber */
+    .scrub {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.55rem 0.9rem;
+      background: var(--panel);
+      border-top: 1px solid var(--line);
+    }
+
+    .scrub .label {
+      color: var(--dim);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    input[type="range"].range {
+      --pct: 0%;
+      flex: 1;
+      height: 18px;
+      margin: 0;
+      background: transparent;
+      -webkit-appearance: none;
+      appearance: none;
+      cursor: pointer;
+    }
+    .range::-webkit-slider-runnable-track {
+      height: 4px;
+      border-radius: 2px;
+      background: linear-gradient(var(--accent), var(--accent)) 0 / var(--pct) 100% no-repeat, var(--line-strong);
+    }
+    .range::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line-strong); }
+    .range::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
+    .range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      margin-top: -5px;
+      border: 2px solid var(--bg);
+      border-radius: 50%;
+      background: var(--ink);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .range::-moz-range-thumb {
+      width: 10px;
+      height: 10px;
+      border: 2px solid var(--bg);
+      border-radius: 50%;
+      background: var(--ink);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    /* Bottom toolbar */
+    footer {
+      display: flex;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.5rem;
+      padding: 0.6rem 1rem 0.75rem;
+      background: var(--panel);
+      border-top: 1px solid var(--line);
+    }
+
+    .group { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+    .group > span, .group > label {
+      color: var(--dim);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .windows {
+      display: flex;
+      flex-wrap: wrap;
+      padding: 2px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--bg);
+    }
+    .group:has(.windows:empty) { visibility: hidden; }
+    .windows button {
+      height: 26px;
+      padding: 0 0.65rem;
+      background: transparent;
+      border-color: transparent;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .windows button:hover { background: var(--hover); color: var(--ink); }
+    .windows button[aria-pressed="true"] { color: var(--accent); }
+
+    .slider { display: flex; align-items: center; gap: 0.55rem; height: 30px; }
+    .slider .range { width: 130px; flex: none; }
+    .slider b {
+      min-width: 2.6rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      font-weight: 400;
+      text-align: right;
+    }
+
+    .actions { display: flex; gap: 0.4rem; margin-left: auto; }
+
+    #save {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-ink);
+    }
+    #save:hover { background: #6aaeff; border-color: #6aaeff; }
+
+    /* Empty state */
+    #empty {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      padding: 2rem;
+      background: radial-gradient(ellipse at center, #10141a 0%, var(--viewport) 70%);
+    }
+
+    .empty-card {
+      max-width: 380px;
+      padding: 2rem 2rem 1.75rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      text-align: center;
+    }
+    .empty-card svg { width: 40px; height: 40px; color: var(--accent); }
+    .empty-card h2 { margin: 0.75rem 0 0.4rem; font-size: 1.05rem; font-weight: 600; }
+    .empty-card p { margin: 0 0 1.25rem; color: var(--muted); line-height: 1.5; }
+
+    #empty[hidden], #status[hidden] { display: none; }
+
+    #pick {
+      height: 36px;
+      padding: 0 1rem;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-ink);
+    }
+    #pick:hover { background: #6aaeff; border-color: #6aaeff; }
+
+    @media (max-width: 1100px) {
+      .keys { display: none; }
+    }
+
+    @media (max-width: 800px) {
+      .brand span { display: none; }
+      main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      .section-head { display: none; }
+      #series { display: flex; gap: 0.4rem; padding: 0.5rem; overflow-x: auto; }
+      #series button { width: auto; min-width: 180px; margin: 0; }
+      .stage-wrap { min-height: 55vh; }
+      .actions { margin-left: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { scroll-behavior: auto; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="12" cy="12" r="5"/><path d="M12 7v10M7 12h10" opacity=".5"/></svg>
+      <span>Slice viewer</span>
+    </div>
+    <div class="study">
+      <h1 id="title">No study open</h1>
+      <p id="subtitle">Open a converted folder to look through the pictures.</p>
+    </div>
+    <div class="keys" aria-hidden="true">
+      <span><kbd>←</kbd><kbd>→</kbd>Slice</span>
+      <span><kbd>↑</kbd><kbd>↓</kbd>Series</span>
+      <span><kbd>+</kbd><kbd>−</kbd>Zoom</span>
+      <span><kbd>0</kbd>Fit</span>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <div class="section-head"><span>Series</span><span id="series-total"></span></div>
+      <ul id="series"></ul>
+    </aside>
+    <div class="stage-wrap">
+      <div id="stage">
+        <canvas id="view" aria-label="Current slice"></canvas>
+        <p class="ov tl"><span class="em" id="ov-series"></span><span id="ov-size"></span></p>
+        <p class="ov tr"><span class="em" id="count"></span><span id="ov-modality"></span></p>
+        <p class="ov bl"><span id="ov-window"></span><span id="ov-wl"></span></p>
+        <p class="ov br"><span id="ov-zoom"></span></p>
+        <div id="empty">
+          <div class="empty-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5 12 11l2.5 2.5"/></svg>
+            <h2>Open a converted study</h2>
+            <p>This page looks through JPEG slices made by the notebook.</p>
+            <button id="pick" type="button">Choose converted folder</button>
+            <input id="folder" type="file" webkitdirectory directory multiple hidden>
+          </div>
+        </div>
+        <p id="status" hidden></p>
+        <div id="zoom-rail">
+          <button id="zoom-in" type="button" aria-label="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+          <input id="zoom-line" type="range" min="0" max="100" value="33" aria-label="Zoom level">
+          <button id="zoom-out" type="button" aria-label="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+        </div>
+      </div>
+      <div class="scrub">
+        <span class="label">Slice</span>
+        <button id="prev" class="icon-btn" type="button" aria-label="Previous picture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+        <input id="slice" class="range" type="range" min="1" max="1" value="1" aria-label="Move through pictures in this series">
+        <button id="next" class="icon-btn" type="button" aria-label="Next picture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="group">
+      <span>Window</span>
+      <div class="windows" id="windows"></div>
+    </div>
+    <div class="group">
+      <label for="brightness">Brightness</label>
+      <div class="slider">
+        <input id="brightness" class="range" type="range" min="-100" max="100" value="0">
+        <b id="brightness-value">0</b>
+      </div>
+    </div>
+    <div class="group">
+      <label for="contrast">Contrast</label>
+      <div class="slider">
+        <input id="contrast" class="range" type="range" min="50" max="200" value="100">
+        <b id="contrast-value">100</b>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="fit" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Fit</button>
+      <button id="save" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Save this picture</button>
+    </div>
+  </footer>
+
+  <noscript>This viewer needs JavaScript turned on.</noscript>
+
+  <script>
+    // Named windows for CT-style pictures. Center is the middle gray.
+    // Width is how many scan numbers fit between black and white.
+    const WINDOW_PRESETS = [
+      { name: "From this scan", fromScan: true },
+      { name: "Soft tissue", center: 40, width: 400 },
+      { name: "Lung", center: -600, width: 1500 },
+      { name: "Bone", center: 400, width: 1800 },
+      { name: "Brain", center: 40, width: 80 },
+      { name: "Abdomen", center: 60, width: 400 }
+    ];
+
+    const view = document.getElementById("view");
+    const ctx = view.getContext("2d");
+    const offscreen = document.createElement("canvas");
+    const offctx = offscreen.getContext("2d");
+
+    const state = {
+      manifest: null,
+      files: null,
+      assetRoot: "",
+      seriesIndex: 0,
+      sliceIndex: 0,
+      center: 40,
+      width: 400,
+      preset: "From this scan",
+      brightness: 0,
+      contrast: 1,
+      userZoom: 1,
+      panX: 0,
+      panY: 0,
+      hu: null,
+      base: null,
+      imgW: 1,
+      imgH: 1,
+      token: 0
+    };
+
+    function seriesAt(index) {
+      return state.manifest.series[index];
+    }
+
+    function pad(n) {
+      return String(n).padStart(6, "0");
+    }
+
+    function jpegName(series, index) {
+      return series.id + "/image-" + pad(index + 1) + ".jpg";
+    }
+
+    // Load manifest.json when this file is served next to the notebook output.
+    // If that fails, the folder button lets you pick dicom_output yourself.
+    function asset(path) {
+      return state.assetRoot + path;
+    }
+
+    // Look beside this page first, then in dicom_output, so either place works.
+    async function tryAutoLoad() {
+      if (location.protocol === "file:") return false;
+      const places = ["manifest.json", "dicom_output/manifest.json"];
+      for (const place of places) {
+        try {
+          const response = await fetch(place);
+          if (!response.ok) continue;
+          state.manifest = await response.json();
+          state.files = null;
+          state.assetRoot = place.indexOf("/") === -1 ? "" : place.slice(0, place.lastIndexOf("/") + 1);
+          return true;
+        } catch (error) {
+          // Try the next place.
+        }
+      }
+      return false;
+    }
+
+    function manifestFromFolder(fileList) {
+      const files = new Map();
+      let manifestFile = null;
+      for (const file of fileList) {
+        const relative = file.webkitRelativePath.split("/").slice(1).join("/");
+        files.set(relative, file);
+        if (relative === "manifest.json") manifestFile = file;
+      }
+      return { files, manifestFile };
+    }
+
+    async function startFromManifest() {
+      if (!state.manifest || !state.manifest.series || state.manifest.series.length === 0) {
+        showEmpty("That folder does not contain a converted series yet.");
+        return;
+      }
+      document.getElementById("empty").hidden = true;
+      buildSeriesList();
+      buildWindowButtons();
+      await selectSeries(0);
+    }
+
+    function showEmpty(message) {
+      document.getElementById("empty").hidden = false;
+      document.querySelector("#empty p").textContent = message;
+    }
+
+    function buildSeriesList() {
+      const list = document.getElementById("series");
+      list.innerHTML = "";
+      state.manifest.series.forEach(function (series, index) {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.index = String(index);
+        button.innerHTML = '<img class="thumb" alt="" loading="lazy"><span class="series-text"><span class="name"></span><span class="meta"></span></span>';
+        button.querySelector(".name").textContent = series.label;
+        button.querySelector(".meta").textContent = series.modality + " · " + series.count + " im";
+        setThumb(button.querySelector(".thumb"), series);
+        button.addEventListener("click", function () { selectSeries(index); });
+        item.appendChild(button);
+        list.appendChild(item);
+      });
+      document.getElementById("series-total").textContent = String(state.manifest.series.length);
+    }
+
+    // Show the middle JPEG of each series as its thumbnail.
+    function setThumb(img, series) {
+      const path = jpegName(series, Math.floor((series.count - 1) / 2));
+      if (state.files) {
+        const file = state.files.get(path);
+        if (file) img.src = URL.createObjectURL(file);
+      } else {
+        img.src = asset(path);
+      }
+    }
+
+    function setFill(input) {
+      const min = Number(input.min);
+      const max = Number(input.max);
+      const pct = max > min ? ((Number(input.value) - min) / (max - min)) * 100 : 0;
+      input.style.setProperty("--pct", pct + "%");
+    }
+
+    function buildWindowButtons() {
+      const box = document.getElementById("windows");
+      box.innerHTML = "";
+      WINDOW_PRESETS.forEach(function (preset) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = preset.name;
+        button.dataset.name = preset.name;
+        button.addEventListener("click", function () { applyPreset(preset.name); });
+        box.appendChild(button);
+      });
+      markWindow();
+    }
+
+    function markWindow() {
+      document.querySelectorAll("#windows button").forEach(function (button) {
+        button.setAttribute("aria-pressed", button.dataset.name === state.preset ? "true" : "false");
+      });
+    }
+
+    function markSeries() {
+      document.querySelectorAll("#series button").forEach(function (button) {
+        button.setAttribute("aria-pressed", Number(button.dataset.index) === state.seriesIndex ? "true" : "false");
+      });
+    }
+
+    async function selectSeries(index) {
+      state.seriesIndex = index;
+      state.sliceIndex = 0;
+      state.userZoom = 1;
+      state.panX = 0;
+      state.panY = 0;
+      syncZoomLine();
+      const series = seriesAt(index);
+      document.getElementById("title").textContent = series.label;
+      document.getElementById("subtitle").textContent = series.modality + " · " + series.count + " pictures · " + series.width + " × " + series.height;
+      document.getElementById("ov-series").textContent = series.label;
+      document.getElementById("ov-size").textContent = series.width + " × " + series.height;
+      document.getElementById("ov-modality").textContent = series.modality;
+      const slider = document.getElementById("slice");
+      slider.min = "1";
+      slider.max = String(series.count);
+      slider.value = "1";
+      applyPreset("From this scan", false);
+      markSeries();
+      await showSlice(0);
+      fitSoon();
+    }
+
+    function applyPreset(name, redraw) {
+      const series = seriesAt(state.seriesIndex);
+      const preset = WINDOW_PRESETS.find(function (item) { return item.name === name; });
+      state.preset = name;
+      if (!preset || preset.fromScan) {
+        state.center = series.windowCenter;
+        state.width = series.windowWidth;
+      } else {
+        state.center = preset.center;
+        state.width = preset.width;
+      }
+      state.brightness = 0;
+      state.contrast = 1;
+      document.getElementById("brightness").value = "0";
+      document.getElementById("contrast").value = "100";
+      document.getElementById("brightness-value").textContent = "0";
+      document.getElementById("contrast-value").textContent = "100";
+      setFill(document.getElementById("brightness"));
+      setFill(document.getElementById("contrast"));
+      markWindow();
+      if (redraw !== false && (state.hu || state.base)) drawPixels();
+    }
+
+    async function showSlice(index) {
+      const series = seriesAt(state.seriesIndex);
+      const count = series.count;
+      if (index < 0) index = 0;
+      if (index > count - 1) index = count - 1;
+      state.sliceIndex = index;
+      document.getElementById("slice").value = String(index + 1);
+      setFill(document.getElementById("slice"));
+      document.getElementById("count").textContent = "Im " + (index + 1) + " / " + count;
+      const myToken = ++state.token;
+      document.getElementById("status").hidden = false;
+      document.getElementById("status").textContent = "Opening picture " + (index + 1) + "…";
+      try {
+        if (series.raw) {
+          const hu = await loadRawSlice(series, index);
+          if (myToken !== state.token) return;
+          state.hu = hu;
+          state.base = null;
+          state.imgW = series.width;
+          state.imgH = series.height;
+        } else {
+          const image = await loadJpeg(series, index);
+          if (myToken !== state.token) return;
+          state.hu = null;
+          state.base = imagePixels(image);
+          state.imgW = image.width;
+          state.imgH = image.height;
+        }
+        drawPixels();
+        document.getElementById("status").hidden = true;
+      } catch (error) {
+        if (myToken !== state.token) return;
+        document.getElementById("status").hidden = false;
+        document.getElementById("status").textContent = "Could not open this picture. " + error.message;
+      }
+    }
+
+    async function loadRawSlice(series, index) {
+      const name = series.id + "/slice-" + pad(index + 1) + ".i16";
+      const bytes = series.width * series.height * 2;
+      let buffer;
+      if (state.files) {
+        const file = state.files.get(name);
+        if (!file) throw new Error("The scan-number file is missing.");
+        buffer = await file.arrayBuffer();
+      } else {
+        const response = await fetch(asset(name));
+        if (!response.ok) throw new Error("The scan-number file could not be read.");
+        buffer = await response.arrayBuffer();
+      }
+      if (buffer.byteLength !== bytes) {
+        throw new Error("This picture's scan numbers are the wrong size.");
+      }
+      const source = new DataView(buffer);
+      const values = new Int16Array(bytes / 2);
+      for (let i = 0; i < values.length; i++) values[i] = source.getInt16(i * 2, true);
+      return values;
+    }
+
+    function loadJpeg(series, index) {
+      const path = jpegName(series, index);
+      return new Promise(function (resolve, reject) {
+        const image = new Image();
+        image.onload = function () { resolve(image); };
+        image.onerror = function () { reject(new Error("The JPEG file is missing.")); };
+        if (state.files) {
+          const file = state.files.get(path);
+          if (!file) {
+            reject(new Error("The JPEG file is missing."));
+            return;
+          }
+          image.src = URL.createObjectURL(file);
+        } else {
+          image.src = asset(path);
+        }
+      });
+    }
+
+    function imagePixels(image) {
+      offscreen.width = image.width;
+      offscreen.height = image.height;
+      offctx.drawImage(image, 0, 0);
+      return offctx.getImageData(0, 0, image.width, image.height).data;
+    }
+
+    // Turn scan numbers into black, gray, and white for the current window.
+    function drawPixels() {
+      const width = state.imgW;
+      const height = state.imgH;
+      offscreen.width = width;
+      offscreen.height = height;
+      const image = offctx.createImageData(width, height);
+      const out = image.data;
+      const low = state.center - state.width / 2;
+      const span = Math.max(1, state.width);
+      const bright = state.brightness;
+      const contrast = state.contrast;
+      const series = seriesAt(state.seriesIndex);
+
+      if (state.hu) {
+        const hu = state.hu;
+        for (let i = 0; i < hu.length; i++) {
+          let gray = (hu[i] - low) / span;
+          if (series.invert) gray = 1 - gray;
+          gray = (gray - 0.5) * contrast + 0.5 + bright;
+          if (gray < 0) gray = 0;
+          if (gray > 1) gray = 1;
+          const value = gray * 255;
+          const offset = i * 4;
+          out[offset] = value;
+          out[offset + 1] = value;
+          out[offset + 2] = value;
+          out[offset + 3] = 255;
+        }
+      } else if (state.base) {
+        const src = state.base;
+        for (let i = 0; i < width * height; i++) {
+          let gray = src[i * 4] / 255;
+          gray = (gray - 0.5) * contrast + 0.5 + bright;
+          if (gray < 0) gray = 0;
+          if (gray > 1) gray = 1;
+          const value = gray * 255;
+          const offset = i * 4;
+          out[offset] = value;
+          out[offset + 1] = value;
+          out[offset + 2] = value;
+          out[offset + 3] = 255;
+        }
+      }
+      offctx.putImageData(image, 0, 0);
+      document.getElementById("ov-window").textContent = state.preset;
+      document.getElementById("ov-wl").textContent = state.hu
+        ? "W " + Math.round(state.width) + "  L " + Math.round(state.center)
+        : "8-bit JPEG";
+      document.getElementById("stage").classList.add("loaded");
+      paint();
+    }
+
+    function fitScale() {
+      return Math.min(view.width / state.imgW, view.height / state.imgH);
+    }
+
+    function paint() {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, view.width, view.height);
+      const scale = fitScale() * state.userZoom;
+      const x = (view.width - state.imgW * scale) / 2 + state.panX;
+      const y = (view.height - state.imgH * scale) / 2 + state.panY;
+      ctx.imageSmoothingEnabled = state.userZoom < 2;
+      ctx.setTransform(scale, 0, 0, scale, x, y);
+      ctx.drawImage(offscreen, 0, 0);
+      document.getElementById("ov-zoom").textContent = "Zoom " + Math.round(scale / (window.devicePixelRatio || 1) * 100) + "%";
+    }
+
+    function resizeView() {
+      const rect = document.getElementById("stage").getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      view.width = Math.max(1, Math.floor(rect.width * dpr));
+      view.height = Math.max(1, Math.floor(rect.height * dpr));
+      if (state.hu || state.base) paint();
+    }
+
+    function fitSoon() {
+      requestAnimationFrame(resizeView);
+    }
+
+    const ZOOM_MIN = 0.5;
+    const ZOOM_MAX = 8;
+
+    function zoomToLine(zoom) {
+      const min = Math.log(ZOOM_MIN);
+      const max = Math.log(ZOOM_MAX);
+      const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
+      return Math.round(((Math.log(clamped) - min) / (max - min)) * 100);
+    }
+
+    function lineToZoom(value) {
+      const min = Math.log(ZOOM_MIN);
+      const max = Math.log(ZOOM_MAX);
+      return Math.exp(min + (Number(value) / 100) * (max - min));
+    }
+
+    function syncZoomLine() {
+      document.getElementById("zoom-line").value = String(zoomToLine(state.userZoom));
+    }
+
+    function setZoom(zoom) {
+      state.userZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
+      syncZoomLine();
+      if (state.hu || state.base) paint();
+    }
+
+    function zoomBy(factor) {
+      setZoom(state.userZoom * factor);
+    }
+
+    function savePicture() {
+      if (!state.hu && !state.base) return;
+      const series = seriesAt(state.seriesIndex);
+      const link = document.createElement("a");
+      link.href = offscreen.toDataURL("image/png");
+      link.download = series.id + "-image-" + pad(state.sliceIndex + 1) + ".png";
+      link.click();
+    }
+
+    document.getElementById("slice").addEventListener("input", function (event) {
+      showSlice(Number(event.target.value) - 1);
+    });
+    document.getElementById("prev").addEventListener("click", function () {
+      showSlice(state.sliceIndex - 1);
+    });
+    document.getElementById("next").addEventListener("click", function () {
+      showSlice(state.sliceIndex + 1);
+    });
+    document.getElementById("zoom-in").addEventListener("click", function () { zoomBy(1.25); });
+    document.getElementById("zoom-out").addEventListener("click", function () { zoomBy(0.8); });
+    document.getElementById("zoom-line").addEventListener("input", function (event) {
+      state.panX = 0;
+      state.panY = 0;
+      setZoom(lineToZoom(event.target.value));
+    });
+    document.getElementById("fit").addEventListener("click", function () {
+      state.panX = 0;
+      state.panY = 0;
+      setZoom(1);
+    });
+    document.getElementById("save").addEventListener("click", savePicture);
+
+    document.getElementById("brightness").addEventListener("input", function (event) {
+      state.brightness = Number(event.target.value) / 400;
+      document.getElementById("brightness-value").textContent = event.target.value;
+      setFill(event.target);
+      if (state.hu || state.base) drawPixels();
+    });
+    document.getElementById("contrast").addEventListener("input", function (event) {
+      state.contrast = Number(event.target.value) / 100;
+      document.getElementById("contrast-value").textContent = event.target.value;
+      setFill(event.target);
+      if (state.hu || state.base) drawPixels();
+    });
+
+    // Turning the scroll wheel moves one picture forward or back.
+    let wheelBucket = 0;
+    document.getElementById("stage").addEventListener("wheel", function (event) {
+      if (!state.manifest || event.target.closest("#zoom-rail")) return;
+      event.preventDefault();
+      wheelBucket += event.deltaY;
+      if (Math.abs(wheelBucket) < 40) return;
+      const direction = wheelBucket > 0 ? 1 : -1;
+      wheelBucket = 0;
+      showSlice(state.sliceIndex + direction);
+    }, { passive: false });
+
+    let drag = null;
+    view.addEventListener("pointerdown", function (event) {
+      if (!state.hu && !state.base) return;
+      view.setPointerCapture(event.pointerId);
+      drag = { x: event.clientX, y: event.clientY, panX: state.panX, panY: state.panY, slice: state.sliceIndex };
+    });
+    view.addEventListener("pointermove", function (event) {
+      if (!drag) return;
+      const dx = event.clientX - drag.x;
+      const dy = event.clientY - drag.y;
+      if (state.userZoom > 1.05) {
+        const dpr = window.devicePixelRatio || 1;
+        state.panX = drag.panX + dx * dpr;
+        state.panY = drag.panY + dy * dpr;
+        paint();
+      }
+    });
+    view.addEventListener("pointerup", function (event) {
+      if (!drag) return;
+      const dx = event.clientX - drag.x;
+      if (state.userZoom <= 1.05 && Math.abs(dx) > 40) {
+        showSlice(state.sliceIndex + (dx < 0 ? 1 : -1));
+      }
+      drag = null;
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.target.matches("input, textarea")) return;
+      if (!state.manifest) return;
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        showSlice(state.sliceIndex + 1);
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        showSlice(state.sliceIndex - 1);
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        selectSeries(Math.min(state.manifest.series.length - 1, state.seriesIndex + 1));
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        selectSeries(Math.max(0, state.seriesIndex - 1));
+      } else if (event.key === "+" || event.key === "=") {
+        zoomBy(1.25);
+      } else if (event.key === "-" || event.key === "_") {
+        zoomBy(0.8);
+      } else if (event.key === "0") {
+        state.panX = 0;
+        state.panY = 0;
+        setZoom(1);
+      }
+    });
+
+    document.getElementById("pick").addEventListener("click", function () {
+      document.getElementById("folder").click();
+    });
+    document.getElementById("folder").addEventListener("change", async function (event) {
+      const picked = manifestFromFolder(event.target.files);
+      if (!picked.manifestFile) {
+        showEmpty("Choose the dicom_output folder. It should contain manifest.json.");
+        return;
+      }
+      state.files = picked.files;
+      state.manifest = JSON.parse(await picked.manifestFile.text());
+      await startFromManifest();
+    });
+
+    window.addEventListener("resize", resizeView);
+    document.querySelectorAll(".range").forEach(setFill);
+
+    tryAutoLoad().then(function (ok) {
+      if (ok) startFromManifest();
+    });
+  </script>
+</body>
+</html>
